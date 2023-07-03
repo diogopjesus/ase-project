@@ -15,12 +15,9 @@
 
 #define DEFAULT_AUTO_WATERING_POWER false
 
-static esp_rmaker_device_t *autoWateringSwitchDevice;
-static esp_rmaker_device_t *currentMoistureInfoDevice;
-static esp_rmaker_device_t *manualWateringDevice;
-
 void rmaker_init(void *auto_watering_write_cb, void *current_moisture_cb, void *manual_watering_cb);
 void rmaker_update_moisture(uint8_t value);
 void rmaker_update_watering_status(bool watering);
 void rmaker_get_watering_status(char *status);
 void rmaker_warn_user(char *str);
+void rmaker_update_auto_watering(bool value);

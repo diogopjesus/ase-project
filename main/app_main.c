@@ -86,65 +86,6 @@ SemaphoreHandle_t xSemaphore = NULL;
 
 static const char *TAG = "ASE-PROJECT";
 
-/* Callback to handle commands received from the RainMaker cloud */
-static esp_err_t auto_watering_write_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
-                                        const esp_rmaker_param_val_t val, void *priv_data, esp_rmaker_write_ctx_t *ctx)
-{
-    if (ctx)
-    {
-        ESP_LOGI(TAG, "Received write request via : %s", esp_rmaker_device_cb_src_to_str(ctx->src));
-    }
-    if (strcmp(esp_rmaker_param_get_name(param), ESP_RMAKER_DEF_POWER_NAME) == 0)
-    {
-        ESP_LOGI(TAG, "RECEIVED_AUTO_WATERING_EN: %s", autoWateringEn ? "true" : "false");
-        // autoWateringEn = val.val.b ? true : false;
-        action |= ACTION_SET_AUTO_WATERING;
-        // esp_rmaker_param_update_and_report(param, val);
-
-        xSemaphoreGiveFromISR(xSemaphore, NULL);
-    }
-    return ESP_OK;
-}
-
-static esp_err_t manual_watering_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
-                                    const esp_rmaker_param_val_t val, void *priv_data, esp_rmaker_write_ctx_t *ctx)
-{
-    if (ctx)
-    {
-        ESP_LOGI(TAG, "Received write request via : %s", esp_rmaker_device_cb_src_to_str(ctx->src));
-    }
-    if (strcmp(esp_rmaker_param_get_name(param), "time irrigating (seconds)") == 0)
-    {
-        timeWatering = val.val.i;
-        esp_rmaker_param_update_and_report(param, val);
-    }
-    else if (strcmp(esp_rmaker_param_get_name(param), "trigger pump") == 0 && !watering)
-    {
-        action |= ACTION_MANUAL_WATERING;
-
-        xSemaphoreGiveFromISR(xSemaphore, NULL);
-    }
-
-    return ESP_OK;
-}
-
-static esp_err_t current_moisture_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
-                                     const esp_rmaker_param_val_t val, void *priv_data, esp_rmaker_write_ctx_t *ctx)
-{
-    if (ctx)
-    {
-        ESP_LOGI(TAG, "Received write request via : %s", esp_rmaker_device_cb_src_to_str(ctx->src));
-    }
-    if (strcmp(esp_rmaker_param_get_name(param), "trigger reading") == 0)
-    {
-        action |= ACTION_MANUAL_SENSOR_READ;
-
-        xSemaphoreGiveFromISR(xSemaphore, NULL);
-    }
-
-    return ESP_OK;
-}
-
 void app_main(void)
 {
 
@@ -226,8 +167,7 @@ void app_main(void)
 
             if (action & ACTION_SET_AUTO_WATERING) // enable/disable auto watering
             {
-                autoWateringEn = !autoWateringEn;
-                esp_rmaker_param_update_and_report(esp_rmaker_device_get_param_by_type(autoWateringSwitchDevice, ESP_RMAKER_DEF_POWER_NAME), esp_rmaker_bool(autoWateringEn));
+                rmaker_update_auto_watering(autoWateringEn);
 
                 ESP_LOGI(TAG, "AUTO_WATERING SET TO %s", autoWateringEn ? "true" : "false");
 
@@ -297,6 +237,72 @@ void app_main(void)
 
     adc_deinit(&adcHandle, &adcCaliHandle, doCalibration);
     gptimer_delete(&gptimer);
+}
+
+/*---------------------------------------------------------------
+        Auto watering callback
+---------------------------------------------------------------*/
+static esp_err_t auto_watering_write_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
+                                        const esp_rmaker_param_val_t val, void *priv_data, esp_rmaker_write_ctx_t *ctx)
+{
+    if (ctx)
+    {
+        ESP_LOGI(TAG, "Received write request via : %s", esp_rmaker_device_cb_src_to_str(ctx->src));
+    }
+    if (strcmp(esp_rmaker_param_get_name(param), ESP_RMAKER_DEF_POWER_NAME) == 0)
+    {
+        autoWateringEn = val.val.b ? true : false;
+        ESP_LOGI(TAG, "RECEIVED_AUTO_WATERING_EN: %s", autoWateringEn ? "true" : "false");
+        action |= ACTION_SET_AUTO_WATERING;
+
+        xSemaphoreGiveFromISR(xSemaphore, NULL);
+    }
+    return ESP_OK;
+}
+
+/*---------------------------------------------------------------
+        Watering device callback
+---------------------------------------------------------------*/
+static esp_err_t manual_watering_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
+                                    const esp_rmaker_param_val_t val, void *priv_data, esp_rmaker_write_ctx_t *ctx)
+{
+    if (ctx)
+    {
+        ESP_LOGI(TAG, "Received write request via : %s", esp_rmaker_device_cb_src_to_str(ctx->src));
+    }
+    if (strcmp(esp_rmaker_param_get_name(param), "time irrigating (seconds)") == 0)
+    {
+        timeWatering = val.val.i;
+        esp_rmaker_param_update_and_report(param, val);
+    }
+    else if (strcmp(esp_rmaker_param_get_name(param), "trigger pump") == 0 && !watering)
+    {
+        action |= ACTION_MANUAL_WATERING;
+
+        xSemaphoreGiveFromISR(xSemaphore, NULL);
+    }
+
+    return ESP_OK;
+}
+
+/*---------------------------------------------------------------
+        Moisture sensor device callback
+---------------------------------------------------------------*/
+static esp_err_t current_moisture_cb(const esp_rmaker_device_t *device, const esp_rmaker_param_t *param,
+                                     const esp_rmaker_param_val_t val, void *priv_data, esp_rmaker_write_ctx_t *ctx)
+{
+    if (ctx)
+    {
+        ESP_LOGI(TAG, "Received write request via : %s", esp_rmaker_device_cb_src_to_str(ctx->src));
+    }
+    if (strcmp(esp_rmaker_param_get_name(param), "trigger reading") == 0)
+    {
+        action |= ACTION_MANUAL_SENSOR_READ;
+
+        xSemaphoreGiveFromISR(xSemaphore, NULL);
+    }
+
+    return ESP_OK;
 }
 
 /*---------------------------------------------------------------
@@ -483,6 +489,7 @@ static void get_data_from_terminal_task(void *arg)
             break;
 
         case 'w':
+            autoWateringEn = !autoWateringEn;
             action |= ACTION_SET_AUTO_WATERING;
             xSemaphoreGive(xSemaphore);
             break;

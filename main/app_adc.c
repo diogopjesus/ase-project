@@ -4,6 +4,11 @@
 
 #include "app_adc.h"
 
+static bool sensor_adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
+static void sensor_adc_calibration_deinit(adc_cali_handle_t handle);
+
+static int adc_raw[2][10];
+
 static const char *TAG = "ASE-PROJECT-ADC";
 
 /*---------------------------------------------------------------

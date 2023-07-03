@@ -8,6 +8,10 @@ void rmaker_add_auto_watering_switch(esp_rmaker_node_t *node, void *auto_waterin
 void rmaker_add_current_moisture(esp_rmaker_node_t *node, void *current_moisture_cb);
 void rmaker_add_manual_watering(esp_rmaker_node_t *node, void *manual_watering_cb);
 
+static esp_rmaker_device_t *autoWateringSwitchDevice;
+static esp_rmaker_device_t *currentMoistureInfoDevice;
+static esp_rmaker_device_t *manualWateringDevice;
+
 static const char *TAG = "ASE-PROJECT-RMAKER";
 
 void rmaker_init(void *auto_watering_write_cb, void *current_moisture_cb, void *manual_watering_cb)
@@ -157,4 +161,9 @@ void rmaker_get_watering_status(char *status)
 {
     esp_rmaker_param_val_t *val = esp_rmaker_param_get_val(esp_rmaker_device_get_param_by_type(currentMoistureInfoDevice, "Status"));
     strcpy(status, (val->val).s);
+}
+
+void rmaker_update_auto_watering(bool value)
+{
+    esp_rmaker_param_update_and_report(esp_rmaker_device_get_param_by_name(autoWateringSwitchDevice, ESP_RMAKER_DEF_POWER_NAME), esp_rmaker_bool(value));
 }
